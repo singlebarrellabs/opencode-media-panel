@@ -16,15 +16,19 @@ Verified against OpenCode 2.3.2 on macOS with ffmpeg 9.
   extracted locally; nothing is uploaded.
 - A terminal that draws inline images. OpenCode renders through kitty or sixel
   when the terminal reports support, and falls back to text cells otherwise.
-  Verified on iTerm2. A blank area where the frame belongs usually means the
-  terminal claimed support and did not deliver; force a protocol with
-  `OPENTUI_IMAGE_PROTOCOL=sixel` or `OPENTUI_IMAGE_PROTOCOL=blocks`.
+  Verified on iTerm2.
 
-The two image settings in OpenCode, `session.image_preview` (Transcript images)
-and `prompt.image_preview` (Image previews), control images in the transcript and
-above the prompt input. Leave Transcript images on: it is the switch that draws
-images in the TUI, and with it off tool-result images disappear from the
-transcript.
+In practice three things gate images in the TUI: terminal support, Transcript
+images on, and verbosity above `low`. The panel draws through the same image
+renderable, so check all three when nothing appears.
+
+The two settings are `session.image_preview` (Transcript images) and
+`session.verbosity`. With Transcript images off, tool-result images disappear
+from the transcript. `session.verbosity: low` groups tool calls and hid them in
+practice. Leave Transcript images on and verbosity at `medium` or higher.
+
+If the frame area stays blank on a terminal that claims support, force a
+protocol: `OPENTUI_IMAGE_PROTOCOL=sixel` or `OPENTUI_IMAGE_PROTOCOL=blocks`.
 
 ## Install
 
@@ -152,7 +156,7 @@ directory under `cacheDirectory` to fetch it again.
 | Toast: `Open a session first` | The panel only exists inside a session.                         |
 | Toast: `ffmpeg failed on ...` | The file is not media ffmpeg can decode.                        |
 | No autoplay                   | No `source` set and `remember` off, or no session is open yet.  |
-| Panel opens, frame blank      | Transcript images off, or the terminal has no image support.    |
+| Panel opens, frame blank      | Transcript images off, verbosity low, or no terminal images.    |
 
 ## Development
 
