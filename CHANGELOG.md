@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.1.6
+
+First release that loads when installed from npm.
+
+- Fix: the shipped `src/tui.tsx` had no JSX runtime directive, so the loader
+  applied the default React transform and failed with
+  `Cannot find package 'react'`. It now opens with
+  `/** @jsxImportSource @opentui/solid */`, as OpenCode's own TUI source does.
+  Every 0.1.x release failed to load from the registry.
+- Fix: partial or interrupted ffmpeg runs are no longer cached as complete.
+  Extraction writes to a staging directory and is renamed into place only after
+  a clean exit with a valid first frame; staging left by a killed run is swept
+  after an hour.
+- Fix: the frame budget counted PNG bytes while memory holds base64, so the real
+  ceiling was about 85 MB. It now counts the stored string, capped at 64 MB.
+- Fix: a cache entry that could not be read looped forever; it is dropped and
+  re-extracted.
+- Fix: losing the publish race between two extractions no longer fails the
+  second one.
+- Fix: `file://` sources bypassed the local-file checks, remote URLs could carry
+  credentials into a toast or the panel title, and remote inputs had no read
+  timeout. Messages redact userinfo and query strings, and a stalled connection
+  aborts after 30 seconds.
+- Fix: a failed panel open left the playback timer running, and a late cleanup
+  could stop the timer of the clip that replaced it. Timers are keyed by clip.
+- Release guard: non-shipping paths are matched without globbing the checkout,
+  the list is read from the base revision, and a tag push sets the version from
+  the tag name.
+- CI: ffmpeg comes from a static release asset instead of the distro mirror,
+  which was slow enough to fail the step.
+
 ## 0.1.0
 
 - TUI plugin that plays a GIF, video, or image sequence in a `session.panel`

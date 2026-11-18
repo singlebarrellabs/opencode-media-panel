@@ -14,6 +14,23 @@ Verified against OpenCode 2.3.2 on macOS with ffmpeg 9.
 - OpenCode 2.3 or newer (TUI plugins and `session.panel` slots).
 - `ffmpeg` on `PATH`, or an absolute path in the `ffmpeg` option. Frames are
   extracted locally; nothing is uploaded.
+- A terminal that draws inline images. OpenCode renders through kitty or sixel
+  when the terminal reports support, and falls back to text cells otherwise.
+  Verified on iTerm2.
+
+Tool-result images and this panel are gated separately.
+
+- Images in tool results need `session.image_preview` (Transcript images) on.
+  With it off the TUI drops file data from tool results and skips its transcript
+  image component, so nothing is drawn. `session.verbosity: low` hides them too.
+- The panel ignores both settings. It hands its own image data to the renderer
+  and never reads tool results. Tested with verbosity at `low` and with previews
+  off.
+- Terminal support is the one thing that decides whether frames appear at all.
+  See above.
+
+If the frame area stays blank on a terminal that claims support, force a
+protocol: `OPENTUI_IMAGE_PROTOCOL=sixel` or `OPENTUI_IMAGE_PROTOCOL=blocks`.
 
 ## Install
 
@@ -135,12 +152,14 @@ directory under `cacheDirectory` to fetch it again.
 
 ## Troubleshooting
 
-| Symptom                       | Cause                                                           |
-| ----------------------------- | --------------------------------------------------------------- |
-| Toast: `Could not run ffmpeg` | ffmpeg is not on the TUI's `PATH`; set `ffmpeg` to a full path. |
-| Toast: `Open a session first` | The panel only exists inside a session.                         |
-| Toast: `ffmpeg failed on ...` | The file is not media ffmpeg can decode.                        |
-| No autoplay                   | No `source` set and `remember` off, or no session is open yet.  |
+| Symptom                        | Cause                                                           |
+| ------------------------------ | --------------------------------------------------------------- |
+| Toast: `Could not run ffmpeg`  | ffmpeg is not on the TUI's `PATH`; set `ffmpeg` to a full path. |
+| Toast: `Open a session first`  | The panel only exists inside a session.                         |
+| Toast: `ffmpeg failed on ...`  | The file is not media ffmpeg can decode.                        |
+| No autoplay                    | No `source` set and `remember` off, or no session is open yet.  |
+| Panel opens, frame blank       | The terminal has no image support.                              |
+| Images missing from transcript | Transcript images off, or verbosity `low`.                      |
 
 ## Development
 
