@@ -45,9 +45,6 @@
     "test": "vitest run",
     "check": "npm run typecheck && npm run lint && npm test"
   },
-  "dependencies": {
-    "@opencode/plugin": "^2.3.2"
-  },
   "peerDependencies": {
     "@opentui/core": ">=0.8.4",
     "@opentui/solid": ">=0.8.4",
@@ -63,5 +60,8 @@
     "solid-js": "^1.9.0",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.3.2"
   }
 }
