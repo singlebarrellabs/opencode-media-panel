@@ -22,7 +22,9 @@ Verified against OpenCode 2.3.2 on macOS with ffmpeg 9.
 
 The two image settings in OpenCode, `session.image_preview` (Transcript images)
 and `prompt.image_preview` (Image previews), control images in the transcript and
-above the prompt input. Whether they also gate this panel is untested here.
+above the prompt input. Leave Transcript images on: it is the switch that draws
+images in the TUI, and with it off tool-result images disappear from the
+transcript.
 
 ## Install
 
@@ -150,6 +152,7 @@ directory under `cacheDirectory` to fetch it again.
 | Toast: `Open a session first` | The panel only exists inside a session.                         |
 | Toast: `ffmpeg failed on ...` | The file is not media ffmpeg can decode.                        |
 | No autoplay                   | No `source` set and `remember` off, or no session is open yet.  |
+| Panel opens, frame blank      | Transcript images off, or the terminal has no image support.    |
 
 ## Development
 
