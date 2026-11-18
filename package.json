@@ -58,7 +58,7 @@
     "@opencode/plugin": "^2.3.2",
     "@opentui/core": "^0.8.4",
     "@opentui/solid": "^0.8.4",
-    "@types/node": "^24.0.0",
+    "@types/node": "^26.6.6",
     "markdownlint-cli2": "^0.24.0",
     "solid-js": "^1.9.0",
     "typescript": "^5.9.0",
