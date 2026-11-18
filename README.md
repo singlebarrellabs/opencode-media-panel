@@ -19,13 +19,10 @@ Verified against OpenCode 2.3.2 on macOS with ffmpeg 9.
   Verified on iTerm2.
 
 In practice three things gate images in the TUI: terminal support, Transcript
-images on, and verbosity above `low`. The panel draws through the same image
-renderable, so check all three when nothing appears.
-
-The two settings are `session.image_preview` (Transcript images) and
-`session.verbosity`. With Transcript images off, tool-result images disappear
-from the transcript. `session.verbosity: low` groups tool calls and hid them in
-practice. Leave Transcript images on and verbosity at `medium` or higher.
+images on, and verbosity above `low`. `session.verbosity: low` hides this
+panel's frames as well as tool-result images, so leave it at `medium` or higher.
+With `session.image_preview` (Transcript images) off, tool-result images
+disappear from the transcript.
 
 If the frame area stays blank on a terminal that claims support, force a
 protocol: `OPENTUI_IMAGE_PROTOCOL=sixel` or `OPENTUI_IMAGE_PROTOCOL=blocks`.
