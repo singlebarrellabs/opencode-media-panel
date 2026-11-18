@@ -219,17 +219,23 @@ jobs:
 
           publish=false
           # Same base-revision rule as INERT_DEVDEPS: a commit cannot widen its
-          # own non-shipping list to skip the change it carries.
+          # own non-shipping list to skip the change it carries. A base without
+          # the literal yields an empty list, so every changed path ships.
           NON_SHIPPING='package-lock.json|.github/*|CHANGELOG.md|.gitignore|test/*|tsconfig.json|biome.json|.markdownlint-cli2.jsonc'
           BASE_NON_SHIPPING="$(git show "${BASE}:.github/workflows/ci.yml" 2>/dev/null \
             | sed -n "s/^[[:space:]]*NON_SHIPPING='\(.*\)'[[:space:]]*$/\1/p" \
             | head -n1 || true)"
-          [ -n "$BASE_NON_SHIPPING" ] && NON_SHIPPING="$BASE_NON_SHIPPING"
+          NON_SHIPPING="$BASE_NON_SHIPPING"
 
           is_non_shipping() {
             local path="$1" pattern
+            local patterns=()
             local IFS='|'
-            for pattern in $NON_SHIPPING; do
+            # Split on | into an array. A plain `for pattern in $NON_SHIPPING`
+            # glob-expands the words against the checkout, so `.github/*` becomes
+            # `.github/workflows` and stops matching `.github/workflows/ci.yml`.
+            read -r -a patterns <<< "$NON_SHIPPING"
+            for pattern in "${patterns[@]}"; do
               # shellcheck disable=SC2254
               case "$path" in $pattern) return 0 ;; esac
             done

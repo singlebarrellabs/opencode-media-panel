@@ -61,8 +61,7 @@ demo.mp4 · 12 fps · 7/48 · space pause · f fullscreen · esc close
 48 frames, because the request is 12 frames per second over 4 seconds; the source
 clip's own frame rate does not change that. The line above the frames is the whole
 interface: the file name, the frame rate in use, the current frame, and the keys.
-`space` pauses, `f` takes the full window, `esc` closes the panel and returns focus
-to the composer.
+`space` pauses, `f` takes the full window, and `esc` closes the panel.
 
 Without a `source`, ask for the file instead:
 
@@ -125,13 +124,13 @@ directory under `cacheDirectory` to fetch it again.
 - No audio. A terminal image renderable cannot play sound.
 - Settings are fixed per clip. `fps` decides the frame rate, not the source
   file's own timing; a 60 fps clip at `fps: 12` plays at 12.
-- Frames are held in memory as base64. Measured at 44 cells wide, frames ran
-  about 34 KB each, so the default 300-frame cap is roughly 15 MB. A 64 MB
-  budget on the stored base64 stops the load past that: the clip plays the
-  frames that fit and the panel marks the count `capped`.
+- Frames are held in memory as base64. Measured at 44 cells wide, a frame ran
+  about 34 KB as a PNG, which is about 45 KB stored: the default 300-frame cap
+  is roughly 14 MB resident. A 64 MB budget on the stored base64 stops the load
+  past that, and the panel marks the count `capped`.
 - Extraction blocks the TUI while ffmpeg runs. A long clip is slow on first
-  play and fast afterwards. A remote input that stops responding aborts after
-  30 seconds instead of hanging.
+  play and fast afterwards. A remote connection that stalls aborts after 30
+  seconds; a slow transfer is not capped.
 - One panel per plugin instance. Playing another file replaces the current clip.
 
 ## Troubleshooting
