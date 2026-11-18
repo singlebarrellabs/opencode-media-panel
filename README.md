@@ -18,11 +18,16 @@ Verified against OpenCode 2.3.2 on macOS with ffmpeg 9.
   when the terminal reports support, and falls back to text cells otherwise.
   Verified on iTerm2.
 
-In practice three things gate images in the TUI: terminal support, Transcript
-images on, and verbosity above `low`. `session.verbosity: low` hides this
-panel's frames as well as tool-result images, so leave it at `medium` or higher.
-With `session.image_preview` (Transcript images) off, tool-result images
-disappear from the transcript.
+Three things gate images in the TUI, and they do different jobs.
+
+- `session.verbosity: low` hides this panel's frames as well as tool-result
+  images. Verified by running the panel at `low`; leave it at `medium` or higher.
+- `session.image_preview` (Transcript images) hides images in tool results: the
+  TUI drops file data from tool results and skips its transcript image
+  component. The panel hands its own image data to the renderer and never reads
+  tool results, so it keeps drawing with previews off. Read from the TUI source,
+  not tested by a run.
+- Terminal support decides whether any of it is drawn at all. See above.
 
 If the frame area stays blank on a terminal that claims support, force a
 protocol: `OPENTUI_IMAGE_PROTOCOL=sixel` or `OPENTUI_IMAGE_PROTOCOL=blocks`.
@@ -153,7 +158,7 @@ directory under `cacheDirectory` to fetch it again.
 | Toast: `Open a session first` | The panel only exists inside a session.                         |
 | Toast: `ffmpeg failed on ...` | The file is not media ffmpeg can decode.                        |
 | No autoplay                   | No `source` set and `remember` off, or no session is open yet.  |
-| Panel opens, frame blank      | Transcript images off, verbosity low, or no terminal images.    |
+| Panel opens, frame blank      | Verbosity low, or the terminal has no image support.            |
 
 ## Development
 
