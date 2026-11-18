@@ -43,6 +43,36 @@ editing the entry:
 With `source` set and `autoplay` left on, the panel opens by itself once a
 session is on screen.
 
+## Example
+
+Make a clip to try it with, so no media of your own is needed:
+
+```bash
+ffmpeg -f lavfi -i "testsrc=size=320x240:rate=24:duration=4" -pix_fmt yuv420p /tmp/demo.mp4
+```
+
+Point `cli.json` at it, as in the install example, with `"source": "/tmp/demo.mp4"`,
+then start OpenCode and open a session. The panel opens on its own:
+
+```text
+demo.mp4 · 12 fps · 7/48 · space pause · f fullscreen · esc close
+```
+
+48 frames, because the request is 12 frames per second over 4 seconds; the source
+clip's own frame rate does not change that. The line above the frames is the whole
+interface: the file name, the frame rate in use, the current frame, and the keys.
+`space` pauses, `f` takes the full window, `esc` closes the panel and returns focus
+to the composer.
+
+Without a `source`, ask for the file instead:
+
+```text
+/media /tmp/demo.mp4
+```
+
+The panel belongs to a session, so opening a file from the home screen reports
+"Open a session first" and opens nothing.
+
 ## Use
 
 | Action                     | How                                                   |
