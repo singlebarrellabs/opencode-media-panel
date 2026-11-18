@@ -14,14 +14,15 @@ Verified against OpenCode 2.3.2 on macOS with ffmpeg 9.
 - OpenCode 2.3 or newer (TUI plugins and `session.panel` slots).
 - `ffmpeg` on `PATH`, or an absolute path in the `ffmpeg` option. Frames are
   extracted locally; nothing is uploaded.
-- A terminal that draws inline images: kitty graphics, sixel, or iTerm2 inline
-  images. Verified on iTerm2. A terminal with no image protocol leaves the
-  frame area blank.
+- A terminal that draws inline images. OpenCode renders through kitty or sixel
+  when the terminal reports support, and falls back to text cells otherwise.
+  Verified on iTerm2. A blank area where the frame belongs usually means the
+  terminal claimed support and did not deliver; force a protocol with
+  `OPENTUI_IMAGE_PROTOCOL=sixel` or `OPENTUI_IMAGE_PROTOCOL=blocks`.
 
-No OpenCode setting is required. The panel draws its own image, so it works with
-transcript image previews turned off. `session.image_preview` and
-`prompt.image_preview` govern images in the transcript and above the prompt
-input, not this panel.
+The two image settings in OpenCode, `session.image_preview` (Transcript images)
+and `prompt.image_preview` (Image previews), control images in the transcript and
+above the prompt input. Whether they also gate this panel is untested here.
 
 ## Install
 
