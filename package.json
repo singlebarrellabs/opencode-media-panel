@@ -1,0 +1,67 @@
+{
+  "name": "opencode-media-panel",
+  "version": "0.1.0",
+  "description": "OpenCode v2 TUI plugin: play GIFs and video inside a session panel.",
+  "type": "module",
+  "exports": {
+    "./tui": "./src/tui.tsx"
+  },
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "opencode-v2",
+    "tui",
+    "gif",
+    "video",
+    "animation",
+    "ffmpeg",
+    "terminal"
+  ],
+  "license": "MIT",
+  "author": "Single Barrel Labs",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/singlebarrellabs/opencode-media-panel.git"
+  },
+  "bugs": {
+    "url": "https://github.com/singlebarrellabs/opencode-media-panel/issues"
+  },
+  "homepage": "https://github.com/singlebarrellabs/opencode-media-panel#readme",
+  "engines": {
+    "node": ">=22"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "biome check . && markdownlint-cli2 \"**/*.md\" \"#node_modules/**\" \"#dist/**\" \"#.git/**\"",
+    "lint:fix": "biome check --write . && markdownlint-cli2 --fix \"**/*.md\" \"#node_modules/**\" \"#dist/**\" \"#.git/**\"",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm run lint && npm test"
+  },
+  "dependencies": {
+    "@opencode/plugin": "^2.3.2"
+  },
+  "peerDependencies": {
+    "@opentui/core": ">=0.8.4",
+    "@opentui/solid": ">=0.8.4",
+    "solid-js": ">=1.9.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.6.7",
+    "@opencode/plugin": "^2.3.2",
+    "@opentui/core": "^0.8.4",
+    "@opentui/solid": "^0.8.4",
+    "@types/node": "^24.0.0",
+    "markdownlint-cli2": "^0.24.0",
+    "solid-js": "^1.9.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}
