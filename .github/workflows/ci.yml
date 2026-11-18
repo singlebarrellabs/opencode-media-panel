@@ -1,0 +1,474 @@
+name: CI
+
+# Single workflow file: this filename is the ONE trusted publisher configured
+# on npm (ci.yml). CI on PRs, publish on push to main (stable), v*-beta* tag
+# push (beta prerelease), or manual dispatch (staging beta).
+#
+# Stable version = max(newest stable `vX.Y.Z` tag, registry `latest`) + patch,
+# not a possibly-stale package.json, so repeated merges never collide. Two
+# sources because each covers the other's failure: the registry's CDN read lags
+# a fresh publish by a minute or two, and a publish can succeed while its tag
+# push fails. An intentional minor/major bump in package.json is honored: if
+# the working tree version is ahead of both, it is published as-is.
+#
+# npm trusted publishing (OIDC) auto-generates provenance; no token needed.
+#
+# Publish failures get five attempts. A version conflict is not retried
+# as-is: on `latest` CI bumps a patch and republishes (bounded at two bumps);
+# on the beta channels it fails fast, because those versions are already
+# unique. Publish is serialized via concurrency; CI runs on the same ref are
+# cancelled when superseded.
+#
+# There is no build step: this package ships TUI plugin source (`./tui`), which
+# OpenCode bundles at load time. CI typechecks it, lints it, and runs the unit
+# tests; nothing is executable in isolation.
+#
+# RELEASE RULE (enforced by the "changes" step in `publish`): publish UNLESS
+# every path changed since the last release (newest stable v* tag) is
+# non-shipping.
+#   * NON-shipping (never cut a release): package-lock.json, .github/**,
+#     CHANGELOG.md, .gitignore, test/**, tsconfig.json, biome.json,
+#     .markdownlint-cli2.jsonc, and package.json when its only diffs are version
+#     and/or the INERT devDependencies (the allowlist in the step:
+#     @biomejs/biome, @types/node, markdownlint-cli2, typescript, vitest:
+#     toolchain only, never shipped).
+#   * Everything else ships, because it is in `files` or decides what is:
+#     src/** (the published plugin source), README.md and LICENSE, and
+#     package.json when any shipping field changes, including a
+#     @opencode/plugin, @opentui, or solid-js bump, which changes the runtime
+#     contract. Anything not on the non-shipping list above ships by default.
+#
+# The baseline is the last RELEASE tag, not this push's `before`, so a shipping
+# change whose publish failed stays "unreleased" and is retried by the next run,
+# including on a later non-shipping push. See the repo's CI/CD standard, §14.
+#
+# Known gap: if `npm publish` succeeds but the `git tag` push fails, the next run
+# reads the published version from the registry, bumps a patch, and publishes the
+# same commit again under a new version. The duplicate is accepted: the cost is a
+# spare patch version, and the alternative (matching `gitHead` before publishing)
+# adds a registry round trip to every release.
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*-beta*"]
+  pull_request:
+    branches: [main]
+  merge_group:
+  workflow_dispatch:
+
+# Read-only GITHUB_TOKEN for every job that does not say otherwise (publish and
+# prerelease declare their own blocks, which replace this one). Keeps a future
+# job from silently inheriting write access, and satisfies CodeQL
+# actions/missing-workflow-permissions.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    concurrency:
+      # Cancels superseded PR runs only. Never cancel a push to main:
+      # cancellation kills the whole run, including its `publish` job, and the
+      # follow-up non-shipping push would then skip, losing the release.
+      # github.head_ref is set only on pull_request events, so main pushes and
+      # tag pushes fall back to the unique run id and never cancel each other.
+      group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      # The frame extractor shells out to ffmpeg. The integration tests skip
+      # themselves without it, so require it here: a suite that skips itself
+      # still passes CI.
+      - name: Ensure ffmpeg
+        run: |
+          command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+          ffmpeg -version >/dev/null
+      - run: npm test
+
+  publish:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+    needs: test
+    runs-on: ubuntu-latest
+    concurrency:
+      group: publish
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      id-token: write # trusted publishing (OIDC)
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The "changes" step below diffs the last release tag (or, with no tag
+          # yet, github.event.before) against github.sha. actions/checkout is
+          # SHALLOW by default and omits those commits and the tags, so
+          # `git diff`/`git describe` would fail, or the guard would
+          # look correct and never fire.
+          fetch-depth: 0
+
+      # Implements the RELEASE RULE documented at the top of this file. Writes
+      # changed=true|false to $GITHUB_OUTPUT; every later step is gated on it,
+      # so a non-shipping push produces no publish, no tag and no Release.
+      #
+      # The baseline is the last RELEASE (newest stable v* tag), not this
+      # push's `before`. A per-push baseline loses a release when a shipping
+      # push's publish fails: the next non-shipping push diffs only itself and
+      # skips, and the unshipped change waits for the next shipping push.
+      # Diffing from the last released commit means any unreleased shipping
+      # change is re-detected on every later run, so the publish retries.
+      - name: Determine whether there are unreleased shipping changes
+        id: changes
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_TYPE: ${{ github.ref_type }}
+          BEFORE: ${{ github.event.before }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          emit() { # $1 = true|false (written to the step output), $2 = log line
+            echo "changed=$1" >> "$GITHUB_OUTPUT"
+            echo "$2"
+          }
+
+          # A beta tag push (v*-beta*) is an explicit release request.
+          if [ "$REF_TYPE" = "tag" ]; then
+            emit true "tag push: publishing"
+            exit 0
+          fi
+
+          # Manual dispatch = staging beta: a human asked for it.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            emit true "workflow_dispatch: publishing"
+            exit 0
+          fi
+
+          # The nearest STABLE release tag reachable from HEAD marks the last commit
+          # that shipped. Beta tags are excluded: they are prereleases, not the
+          # released baseline. A tag survives force-pushes, where `before` can be
+          # unreachable.
+          BASE="$(git describe --tags --abbrev=0 --match 'v*' --exclude 'v*-beta*' 2>/dev/null || true)"
+          if [ -n "$BASE" ]; then
+            echo "Baseline: last stable release tag ${BASE}"
+          else
+            # No stable release tag yet (first release): fall back to this push.
+            if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+              emit true "no release tag and no usable before commit: publishing"
+              exit 0
+            fi
+            BASE="$BEFORE"
+            echo "Baseline: no stable release tag yet, using before commit ${BASE}"
+          fi
+
+          # Shallow-checkout trap. If the baseline commit is not present, fail
+          # loudly instead of skipping (or falsely publishing) a release.
+          if ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "::error::baseline commit ${BASE} is not in this checkout; actions/checkout needs fetch-depth: 0 with tags"
+            exit 1
+          fi
+
+          # Squash merges make tag..sha exactly the unreleased diff.
+          # --no-renames: with rename detection on, `--name-only` reports only
+          # the NEW path of a rename, so a rename INTO a non-shipping path would
+          # hide the shipping source (e.g. `git mv src/a.ts .github/a.ts`).
+          changed_paths="$(git diff --no-renames --name-only "$BASE" "$SHA")"
+          echo "Paths changed by ${BASE}..${SHA}:"
+          printf '%s\n' "$changed_paths"
+
+          # package.json ships when any field other than version and an INERT
+          # devDependency differs. INERT is the explicit list below (toolchain
+          # only, never shipped); EVERYTHING ELSE defaults to shipping, so
+          # @opencode/plugin, @opentui/* and solid-js still cut a release when
+          # bumped, because they are the runtime contract. jq -S normalises key order;
+          # on any error (e.g. file absent) treat it as shipping.
+          INERT_DEVDEPS='["@biomejs/biome","@types/node","markdownlint-cli2","typescript","vitest"]'
+
+          # The literal above is the list this commit publishes under. The guard
+          # compares against the copy on the base revision instead, so a PR that
+          # adds a dependency to the list cannot skip that dependency's own
+          # release, so the entry has to land through review first. No literal on
+          # the base (guard newly added) means everything ships, the
+          # fail-closed direction.
+          INERT_DEVDEPS="$(git show "${BASE}:.github/workflows/ci.yml" 2>/dev/null \
+            | sed -n "s/^[[:space:]]*INERT_DEVDEPS='\(.*\)'[[:space:]]*$/\1/p" \
+            | head -n1 || true)"
+          [ -n "$INERT_DEVDEPS" ] || INERT_DEVDEPS='[]'
+
+          pkg_shipping_changed() {
+            local before after
+            # Single quotes are deliberate: $inert/$k are jq variables, not
+            # shell ones.
+            # shellcheck disable=SC2016
+            local normalise='del(.version)
+              | if has("devDependencies")
+                then .devDependencies |= with_entries(select(.key as $k | ($inert | index($k)) | not))
+                else . end
+              | if (.devDependencies // {}) == {} then del(.devDependencies) else . end'
+            before="$(git show "${BASE}:package.json" 2>/dev/null | jq -S --argjson inert "$INERT_DEVDEPS" "$normalise")" || return 0
+            after="$(git show "${SHA}:package.json" 2>/dev/null | jq -S --argjson inert "$INERT_DEVDEPS" "$normalise")" || return 0
+            [ "$before" != "$after" ]
+          }
+
+          publish=false
+          # Same base-revision rule as INERT_DEVDEPS: a commit cannot widen its
+          # own non-shipping list to skip the change it carries.
+          NON_SHIPPING='package-lock.json|.github/*|CHANGELOG.md|.gitignore|test/*|tsconfig.json|biome.json|.markdownlint-cli2.jsonc'
+          BASE_NON_SHIPPING="$(git show "${BASE}:.github/workflows/ci.yml" 2>/dev/null \
+            | sed -n "s/^[[:space:]]*NON_SHIPPING='\(.*\)'[[:space:]]*$/\1/p" \
+            | head -n1 || true)"
+          [ -n "$BASE_NON_SHIPPING" ] && NON_SHIPPING="$BASE_NON_SHIPPING"
+
+          is_non_shipping() {
+            local path="$1" pattern
+            local IFS='|'
+            for pattern in $NON_SHIPPING; do
+              # shellcheck disable=SC2254
+              case "$path" in $pattern) return 0 ;; esac
+            done
+            return 1
+          }
+
+          while IFS= read -r path; do
+            [ -z "$path" ] && continue
+            case "$path" in
+              package.json)
+                if pkg_shipping_changed; then
+                  echo "  PUBLISH: $path (a shipping field changed)"
+                  publish=true
+                else
+                  echo "  skip:    $path (only version/inert devDependencies changed)"
+                fi
+                ;;
+              *)
+                if is_non_shipping "$path"; then
+                  echo "  skip:    $path (non-shipping)"
+                else
+                  echo "  PUBLISH: $path"
+                  publish=true
+                fi
+                ;;
+            esac
+          done <<< "$changed_paths"
+
+          emit "$publish" "RESULT: changed=$publish"
+
+      - uses: actions/setup-node@v7
+        if: steps.changes.outputs.changed == 'true'
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+      - name: Determine channel (latest / beta)
+        id: channel
+        if: steps.changes.outputs.changed == 'true'
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            # The tag is authoritative: a v0.2.0-beta.1 tag publishes 0.2.0-beta.1,
+            # whatever package.json happens to say. `npm version` errors when the
+            # version would not change, which is the case when the maintainer has
+            # already set package.json to match.
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            [ "$(npm pkg get version | tr -d '"')" = "$TAG_VERSION" ] ||
+              npm version "$TAG_VERSION" --no-git-tag-version --no-commit-hooks
+            echo "tag=beta" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # manual staging: next -beta.X after the last published beta
+            CUR=$(npm pkg get version | tr -d '"')
+            LAST_BETA=$(npm view opencode-media-panel@beta version 2>/dev/null || true)
+            if [ -n "$LAST_BETA" ]; then
+              LAST_BASE="${LAST_BETA%-beta.*}"
+              NEXT_BASE=$(printf '%s\n' "$CUR" "$LAST_BASE" | sort -V | tail -1)
+              if [ "$NEXT_BASE" = "$LAST_BASE" ] && [ "$NEXT_BASE" != "$CUR" ]; then
+                N="${LAST_BETA##*-beta.}"
+                npm version "${NEXT_BASE}-beta.$((N + 1))" --no-git-tag-version --no-commit-hooks
+              else
+                npm version prerelease --preid=beta --no-git-tag-version --no-commit-hooks
+              fi
+            else
+              npm version prerelease --preid=beta --no-git-tag-version --no-commit-hooks
+            fi
+            echo "tag=beta" >> "$GITHUB_OUTPUT"
+          else
+            # merge to main -> next patch after the last published release.
+            #
+            # The baseline is the HIGHEST of two sources:
+            #   - the newest stable `v*` tag, which the publish job pushes
+            #     immediately after a successful publish; and
+            #   - the registry's `latest`.
+            #
+            # Registry reads go through a CDN with a couple of minutes of
+            # cache, so a second shipping merge inside that window still sees
+            # the PREVIOUS version and computes one that is already published
+            # (that is the E409 race). The tag is refreshed with the push and
+            # does not lag, so it wins there. The registry is still consulted
+            # because it also covers the reverse failure: a publish that
+            # succeeded while its tag push did not.
+            #
+            # `git tag --list` (not `git describe`) is deliberate: describe
+            # reports the newest tag REACHABLE from HEAD, so a tag created on a
+            # branch that was later rewound would be missed. Both the tag list
+            # and the registry are read as an unordered set of candidate
+            # baselines; only the numeric maximum matters.
+            #
+            # Only plain `vX.Y.Z` tags count. `sort -V` is not semver-aware (it
+            # sorts `1.0.0-rc.1` above `1.0.0` and any word above a number), and
+            # this job only ever publishes plain versions, so pre-release and
+            # non-numeric tags are excluded by the pattern rather than trusted
+            # to sort correctly. `git tag` has no --exclude, so this is a
+            # filter, not a flag.
+            LAST_TAG=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' | sort -V | tail -n1 || true)
+            LAST_REG=$(npm view opencode-media-panel@latest version 2>/dev/null || true)
+            if [ -z "$LAST_REG" ]; then
+              echo "::warning::could not read the registry's latest version; deriving from tags only"
+            fi
+            LAST=$(printf '%s\n%s\n' "$LAST_TAG" "$LAST_REG" | sed '/^$/d' | sort -V | tail -n1)
+            CUR=$(npm pkg get version | tr -d '"')
+            echo "Baseline candidates: tag=${LAST_TAG:-none} registry=${LAST_REG:-none} -> ${LAST:-none}"
+            if [ -n "$LAST" ] && [ "$(printf '%s\n%s' "$CUR" "$LAST" | sort -V | tail -1)" = "$LAST" ]; then
+              # tree at/below the baseline -> align to it (unless equal), then
+              # bump patch; npm errors on "Version not changed" if the align
+              # target equals the current version
+              if [ "$CUR" != "$LAST" ]; then
+                npm version "$LAST" --no-git-tag-version --no-commit-hooks
+              fi
+              npm version patch --no-git-tag-version --no-commit-hooks
+            else
+              # tree version ahead (intentional minor/major bump) -> as-is
+              :
+            fi
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Show derived publishing target
+        if: steps.changes.outputs.changed == 'true'
+        run: 'echo "Derived target: $(npm pkg get version) to tag ${{ steps.channel.outputs.tag }} (a version conflict bumps the patch and republishes)"'
+      - name: Publish (bump on version conflict, retry transient)
+        if: steps.changes.outputs.changed == 'true'
+        timeout-minutes: 5
+        run: |
+          # A version conflict cannot be retried as-is: npm keeps rejecting the
+          # same version. On the `latest` channel a conflict means the registry
+          # is ahead of the derived baseline (CDN lag, or a publish from a
+          # parallel run), so bump a patch and try again. The tag pushed below
+          # is read from package.json, so it follows the bump. Every other
+          # failure is retried as a transient network/registry error. The beta
+          # channels derive unique versions, so a conflict there is a re-run
+          # and still fails fast.
+          #
+          # npm prints "Cannot publish over ..." and "npm error code E409"; the
+          # match is case-insensitive on purpose.
+          bumps=0
+          attempts=0
+          while [ "$attempts" -lt 5 ]; do
+            attempts=$((attempts + 1))
+            if OUT=$(npm publish --tag ${{ steps.channel.outputs.tag }} --provenance --access public 2>&1); then
+              echo "$OUT"
+              echo "Published $(npm pkg get version | tr -d '"')"
+              exit 0
+            fi
+            if echo "$OUT" | grep -qiE "cannot publish over|previously published|previously staged|npm error code E409"; then
+              if [ "${{ steps.channel.outputs.tag }}" = "latest" ] && [ "$bumps" -lt 2 ]; then
+                bumps=$((bumps + 1))
+                echo "$OUT" >&2
+                echo "Version conflict: bumping patch and retrying ($bumps/2)" >&2
+                npm version patch --no-git-tag-version --no-commit-hooks
+                continue
+              fi
+              echo "$OUT" >&2
+              echo "Version conflict: not retrying" >&2
+              exit 1
+            fi
+            echo "$OUT"
+            echo "Publish failed (transient?), retrying ($attempts/5)..."
+            sleep 3
+          done
+          exit 1
+      - name: Push tag (stable only)
+        id: tag
+        if: steps.changes.outputs.changed == 'true' && steps.channel.outputs.tag == 'latest'
+        run: |
+          V=$(npm pkg get version | tr -d '"')
+          echo "published=$V" >> "$GITHUB_OUTPUT"
+          git tag "v$V"
+          git push origin "v$V"
+      - uses: softprops/action-gh-release@v3
+        if: steps.changes.outputs.changed == 'true' && steps.channel.outputs.tag == 'latest'
+        with:
+          tag_name: v${{ steps.tag.outputs.published }}
+          generate_release_notes: true
+      - uses: softprops/action-gh-release@v3
+        if: steps.changes.outputs.changed == 'true' && github.ref_type == 'tag'
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: true
+
+  # Per-PR beta prerelease: every PR push publishes a unique
+  # <version>-beta.<run_number> to the npm `beta` dist-tag, so every PR is
+  # instantly installable (`npm i opencode-media-panel@beta`). run_number
+  # increases per workflow run, so each push gets a unique version; re-runs
+  # collide with themselves and are deduped (conflict = exit 0). Same-repo,
+  # non-draft, non-dependabot PRs only.
+  prerelease:
+    runs-on: ubuntu-latest
+    needs: test
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.actor != 'dependabot[bot]'
+    concurrency:
+      group: pr-prerelease-${{ github.ref }}
+      cancel-in-progress: true
+    permissions:
+      contents: read
+      id-token: write # trusted publishing (OIDC)
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org/
+      - name: Compute prerelease version
+        id: version
+        run: |
+          BASE=$(npm pkg get version | tr -d '"')
+          echo "version=${BASE}-beta.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+      - name: Set version (no git change)
+        run: npm version "${{ steps.version.outputs.version }}" --no-git-tag-version --no-commit-hooks
+      - name: Publish beta prerelease
+        timeout-minutes: 5
+        run: |
+          for i in $(seq 1 3); do
+            OUT=$(npm publish --tag beta --provenance --access public 2>&1) && { echo "$OUT"; exit 0; }
+            if echo "$OUT" | grep -qiE "cannot publish over|previously published|previously staged|npm error code E409"; then
+              echo "$OUT" >&2
+              echo "Version conflict (workflow re-run): deduped" >&2
+              exit 0
+            fi
+            echo "$OUT"
+            echo "Publish failed (transient?), retrying ($i/3)..."
+            sleep 3
+          done
+          exit 1
+      - name: Comment version on PR
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const body = `Beta prerelease published: \`${{ steps.version.outputs.version }}\`. Install with \`npm i opencode-media-panel@beta\`.`;
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number
+            });
+            const marker = comments.find(c => c.user.login === 'github-actions[bot]' && c.body.startsWith('Beta prerelease published:'));
+            if (marker) {
+              await github.rest.issues.updateComment({ owner: context.repo.owner, repo: context.repo.repo, comment_id: marker.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number, body });
+            }
