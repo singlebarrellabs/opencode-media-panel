@@ -297,6 +297,13 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
+      # `npm publish` runs `prepack`, which builds dist/ and therefore needs the
+      # Babel devDependencies. Without this the publish fails with
+      # ERR_MODULE_NOT_FOUND for @babel/core, and the retry loop reports it as a
+      # transient failure.
+      - name: Install build dependencies
+        if: steps.changes.outputs.changed == 'true'
+        run: npm ci
       - name: Determine channel (latest / beta)
         id: channel
         if: steps.changes.outputs.changed == 'true'
@@ -416,6 +423,13 @@ jobs:
               echo "Version conflict: not retrying" >&2
               exit 1
             fi
+            # A local failure (the prepack build, a missing dependency) is not
+            # transient: retrying it just burns five rounds on the same error.
+            if echo "$OUT" | grep -qE "ERR_MODULE_NOT_FOUND|command sh -c npm run build|npm error path "; then
+              echo "$OUT" >&2
+              echo "Local failure (build or install), not retrying" >&2
+              exit 1
+            fi
             echo "$OUT"
             echo "Publish failed (transient?), retrying ($attempts/5)..."
             sleep 3
@@ -468,6 +482,8 @@ jobs:
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org/
+      # Same reason as the publish job: `npm publish`'s prepack runs the build.
+      - run: npm ci
       - name: Compute prerelease version
         id: version
         run: |
