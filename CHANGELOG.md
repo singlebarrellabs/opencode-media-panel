@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.7
+
+Packaging, plus a documented limit that makes the feature honest.
+
+- Change: the package ships precompiled `dist/` instead of raw `src/tui.tsx`.
+  The build (`scripts/build.mjs`, run by `prepack`) compiles the panel with
+  `babel-preset-solid` targeting `@opentui/solid`, so the shipped JSX already
+  contains Solid's getter wrapping and no longer depends on which compiler the
+  host's plugin loader applies. Babel is a devDependency only; the published
+  dependencies and peer dependencies are unchanged.
+- Change: `npm run check` now builds before testing, and CI builds in the test
+  job.
+- Known limit: OpenCode 2.3.2 renders a `session.panel` contribution once and
+  never repaints it. Frame caching and the playback timer work, but only the
+  first frame is visible. A minimal plugin that increments a number in the same
+  slot reproduces it, and re-opening the panel does not help. Documented in the
+  README under Limits; animation needs a host fix.
+
 ## 0.1.6
 
 First release that loads when installed from npm.

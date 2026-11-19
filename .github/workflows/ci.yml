@@ -19,9 +19,12 @@ name: CI
 # unique. Publish is serialized via concurrency; CI runs on the same ref are
 # cancelled when superseded.
 #
-# There is no build step: this package ships TUI plugin source (`./tui`), which
-# OpenCode bundles at load time. CI typechecks it, lints it, and runs the unit
-# tests; nothing is executable in isolation.
+# There IS a build step, and it is load-bearing. The package ships `dist/`,
+# compiled by `scripts/build.mjs` with babel-preset-solid targeting
+# `@opentui/solid`. Shipping raw TSX made the panel depend on the host applying
+# the Solid transform; a registry-installed plugin got JSX without Solid's
+# getters, so the panel rendered once and never updated. Babel is a
+# devDependency, and `prepack` runs the build, so the tarball is always built.
 #
 # RELEASE RULE (enforced by the "changes" step in `publish`): publish UNLESS
 # every path changed since the last release (newest stable v* tag) is
@@ -30,13 +33,13 @@ name: CI
 #     CHANGELOG.md, .gitignore, test/**, tsconfig.json, biome.json,
 #     .markdownlint-cli2.jsonc, and package.json when its only diffs are version
 #     and/or the INERT devDependencies (the allowlist in the step:
-#     @biomejs/biome, @types/node, @opentui/core, @opentui/solid,
-#     markdownlint-cli2, typescript, vitest: toolchain only, never shipped).
-#     The package ships ./tui source that OpenCode bundles, so these are only
-#     used for typechecking. A peerDependencies change still ships.
+#     @biomejs/biome, @types/node, @babel/core, @babel/preset-typescript,
+#     @opentui/core, @opentui/solid, babel-preset-solid, markdownlint-cli2,
+#     typescript, vitest: toolchain only, never shipped).
+#     A peerDependencies change still ships.
 #   * Everything else ships, because it is in `files` or decides what is:
-#     src/** (the published plugin source), README.md and LICENSE, and
-#     package.json when any shipping field changes, including a
+#     src/** (compiled into the published dist/**), scripts/**, README.md and
+#     LICENSE, and package.json when any shipping field changes, including a
 #     @opencode/plugin or solid-js bump, which changes the runtime contract.
 #     Anything not on the non-shipping list above ships by default.
 #
@@ -86,6 +89,9 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      # The build is part of what is published, so it is part of what is tested.
+      # It also fails on its own if the compiled entry has no Solid getters.
+      - run: npm run build
       # The frame extractor shells out to ffmpeg. The integration tests skip
       # themselves without it, so require it here: a suite that skips itself
       # still passes CI.
@@ -204,7 +210,12 @@ jobs:
           # @opencode/plugin, @opentui/* and solid-js still cut a release when
           # bumped, because they are the runtime contract. jq -S normalises key order;
           # on any error (e.g. file absent) treat it as shipping.
-          INERT_DEVDEPS='["@biomejs/biome","@types/node","@opentui/core","@opentui/solid","markdownlint-cli2","typescript","vitest"]'
+          #
+          # The Babel entries are the build toolchain: they produce dist/ and
+          # are never installed by a user, so a bump changes nothing shipped.
+          # Adding to this list in the same commit does NOT apply to that commit:
+          # the guard reads the list from BASE (below).
+          INERT_DEVDEPS='["@babel/core","@babel/preset-typescript","@biomejs/biome","@types/node","@opentui/core","@opentui/solid","babel-preset-solid","markdownlint-cli2","typescript","vitest"]'
 
           # The literal above is the list this commit publishes under. The guard
           # compares against the copy on the base revision instead, so a PR that
