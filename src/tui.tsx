@@ -4,6 +4,7 @@ import type { PanelInput } from "@opencode/plugin/tui/context";
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import { extractFrames } from "./frames";
 import { cellsFor, normalizeOptions } from "./options";
+import { Media } from "./rpc";
 
 /** Opening name for this plugin's panel. Shared selection value, not a registry key. */
 const PANEL = "media.panel";
@@ -226,6 +227,19 @@ export default Plugin.define({
       ),
     });
 
+    // Remote control: the server part exposes `POST /api/rpc/media/open`, which
+    // a client (script, agent, another plugin) can call. The panel itself is
+    // unreachable from outside the TUI process, so the call arrives as an event
+    // and this subscriber is what opens it.
+    const remote = context.client.rpc(Media);
+    const stopOpen = remote.events.on("open", (event) => {
+      const data = event.data as { source?: unknown };
+      if (typeof data.source === "string") open(data.source);
+    });
+    const stopClose = remote.events.on("close", () => {
+      context.ui.panel.close();
+    });
+
     const remembered = options.remember ? saved.source.trim() : "";
     const initial = options.source ?? (remembered === "" ? undefined : remembered);
     let autoplay: ReturnType<typeof setInterval> | undefined;
@@ -250,6 +264,8 @@ export default Plugin.define({
 
     return () => {
       stopTicker();
+      stopOpen();
+      stopClose();
       if (autoplay) clearInterval(autoplay);
       unregister();
     };
