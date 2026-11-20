@@ -126,7 +126,7 @@ export default Plugin.define({
       }, 1000 / next.fps);
     }
 
-    function open(source: string): boolean {
+    function show(source: string): boolean {
       let extracted: ReturnType<typeof extractFrames>;
       try {
         extracted = extractFrames(source, options);
@@ -231,11 +231,25 @@ export default Plugin.define({
     // a client (script, agent, another plugin) can call. The panel itself is
     // unreachable from outside the TUI process, so the call arrives as an event
     // and this subscriber is what opens it.
+    // Every open goes through the server: `open` below calls the RPC, the
+    // server emits, and this subscriber renders. One path for the slash
+    // command, autoplay and any external caller, and no shell or CLI in it.
+    // If the server part is not loaded the call rejects and the local opener
+    // runs instead, so a TUI-only install keeps working.
     const remote = context.client.rpc(Media);
     const stopOpen = remote.events.on("open", (event) => {
       const data = event.data as { source?: unknown };
-      if (typeof data.source === "string") open(data.source);
+      if (typeof data.source === "string") show(data.source);
     });
+
+    function open(source: string): void {
+      const call = remote.open;
+      if (typeof call !== "function") {
+        show(source);
+        return;
+      }
+      Promise.resolve(call({ source })).catch(() => show(source));
+    }
     const stopClose = remote.events.on("close", () => {
       context.ui.panel.close();
     });
