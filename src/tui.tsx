@@ -1,7 +1,7 @@
 /** @jsxImportSource @opentui/solid */
 import { Plugin, usePlugin } from "@opencode/plugin/tui";
 import type { PanelInput } from "@opencode/plugin/tui/context";
-import { createSignal, onCleanup, Show } from "solid-js";
+import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import { extractFrames } from "./frames";
 import { cellsFor, normalizeOptions } from "./options";
 
@@ -46,6 +46,12 @@ function MediaPanel(props: {
   // id keeps a late cleanup from stopping the timer of the clip that replaced
   // it.
   onCleanup(() => props.onDispose?.(props.clip.id));
+
+  // Keymap layers are routed to the focused renderable, so a panel opened from
+  // the prompt owns no keys until something focuses it: `escape` and `space`
+  // silently do nothing and the panel has to be clicked first. Mounting a
+  // panel means the user asked for it, so take focus on the way in.
+  onMount(() => props.panel.focus());
 
   context.keymap.layer(() => ({
     commands: [
