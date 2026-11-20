@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.10
+
+Open the panel from outside the TUI, for the session you are viewing.
+
+- Add: a server part (package root) exposing the RPC methods
+  `POST /api/rpc/media/open` and `POST /api/rpc/media/close`; the TUI part
+  subscribes to the emitted events and routes them to the same open/close the
+  slash command uses. A script or an agent can open a clip without typing and
+  without enabling autoplay.
+- Scoped to the current session on purpose: `panel.open` only opens the session
+  being viewed, so a request has no way to appear in another one. Nothing is
+  queued for later.
+- Add: `./rpc` export with the contract, for callers using
+  `client.rpc(Media).open({ source })`.
+- Packaging: exports `.`, `./tui` and `./rpc` from `dist/`, so the server part
+  loads beside the TUI part from one entry.
+- Note: events are live only. A call made while no TUI is running is missed.
+
+## 0.1.9
+
+- Fix: the panel did not take focus when it opened, so `escape`, `space` and
+  `f` did nothing until it was clicked. Keymap layers are routed to the focused
+  renderable; `MediaPanel` now focuses the panel on mount.
+
 ## 0.1.8
 
 Documentation correction. No code change.

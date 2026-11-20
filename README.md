@@ -102,6 +102,25 @@ The panel belongs to a session, so opening a file from the home screen reports
 Paths with spaces are fine: the whole argument is the path. Remote URLs work
 too, as long as ffmpeg can read the protocol.
 
+### Opening it from outside the TUI
+
+A script, an agent, or another plugin can open the panel without typing. The
+package ships a server part that exposes an RPC, and the TUI part subscribes to
+its events:
+
+```bash
+opencode api POST /api/rpc/media/open -d '{"source":"/home/user/clips/demo.mp4"}'
+opencode api POST /api/rpc/media/close
+```
+
+Any client with the server address works the same way, including
+`client.rpc(Media).open({ source })` from `@opencode/client`.
+
+The panel opens in the session you are viewing, and there is no way to target
+another one: `panel.open` is session-scoped, and a request is not queued for
+later. Events are live only, so a call made while no TUI is running is missed,
+exactly like typing the command before the panel exists.
+
 ## Options
 
 | Option           | Default     | Meaning                                         |

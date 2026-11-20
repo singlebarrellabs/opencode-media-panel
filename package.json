@@ -4,7 +4,9 @@
   "description": "OpenCode v2 TUI plugin: play GIFs and video inside a session panel.",
   "type": "module",
   "exports": {
-    "./tui": "./dist/tui.js"
+    ".": "./dist/index.js",
+    "./tui": "./dist/tui.js",
+    "./rpc": "./dist/rpc.js"
   },
   "files": [
     "dist",
