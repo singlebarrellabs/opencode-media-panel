@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.8
+
+Documentation correction. No code change.
+
+- Fix: 0.1.7's README and changelog claimed OpenCode 2.3.2 renders a
+  `session.panel` contribution once, so only the first frame was visible. That
+  was wrong, and so was the test behind it. A terminal escape stream carries
+  only the cells that changed, so a counter going `1/48` → `2/48` arrives as
+  the character `2`, never as a token; counting tokens in the stream reads a
+  live panel as frozen. Replaying the same log through a terminal emulator
+  shows the counter and the image advancing on 0.1.7 as installed from npm
+  (samples at 55/70/85/100% of one session: `2/48`, `9/48`, `14/48`, `20/48`).
+- The real failure is a hot-swapped plugin: a config edit that adds or changes
+  the entry can leave a mount that never repaints and ignores `escape`. Closing
+  and reopening the TUI fixes it. Documented under Troubleshooting.
+- Animation works. The frame ticker, the `<image>` swap and the cache are all
+  fine; no upstream fix is needed for playback.
+
 ## 0.1.7
 
 Packaging, plus a documented limit that makes the feature honest.

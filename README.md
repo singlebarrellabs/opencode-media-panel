@@ -138,13 +138,6 @@ directory under `cacheDirectory` to fetch it again.
 
 ## Limits
 
-- **OpenCode 2.3.2 renders a panel contribution once.** The plugin loads, caches
-  the frames, and its timer runs, but the host does not repaint the panel, so
-  only the first frame is ever visible. A twenty-line plugin that increments a
-  number in a `session.panel` slot shows the same behaviour, and neither a
-  signal update nor re-opening the panel changes it. The panel starts animating
-  only once the host re-renders the slot; the frame extraction, cache and timer
-  here are ready for that.
 - No audio. A terminal image renderable cannot play sound.
 - Settings are fixed per clip. `fps` decides the frame rate, not the source
   file's own timing; a 60 fps clip at `fps: 12` plays at 12.
@@ -166,6 +159,8 @@ directory under `cacheDirectory` to fetch it again.
 | Toast: `ffmpeg failed on ...`  | The file is not media ffmpeg can decode.                        |
 | No autoplay                    | No `source` set and `remember` off, or no session is open yet.  |
 | Panel opens, frame blank       | The terminal has no image support.                              |
+| Panel shows one frame, frozen  | The plugin was hot-swapped into a running session by a config   |
+| counter, `escape` ignored      | edit; restart the TUI so it mounts fresh.                       |
 | Images missing from transcript | Transcript images off, or verbosity `low`.                      |
 
 ## Development
