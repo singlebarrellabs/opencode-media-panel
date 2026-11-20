@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.11
+
+- Change: every open now travels through the plugin's own server RPC. `/media`
+  and autoplay call `context.client.rpc(Media).open(...)`, the server part emits
+  `open`, and the TUI subscriber renders. One path for the slash command,
+  autoplay and any external caller, all inside the running client. If the
+  server part is not loaded the call rejects and the local opener runs, so a
+  TUI-only install keeps working.
+- Fix: the README's RPC example sent the arguments at the top level. The HTTP
+  endpoint expects `{"input": …}`, and it authenticates with HTTP Basic
+  (`opencode` plus the service password). Both are now documented.
+
 ## 0.1.10
 
 Open the panel from outside the TUI, for the session you are viewing.

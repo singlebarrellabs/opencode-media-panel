@@ -109,8 +109,17 @@ package ships a server part that exposes an RPC, and the TUI part subscribes to
 its events:
 
 ```bash
-opencode api POST /api/rpc/media/open -d '{"source":"/home/user/clips/demo.mp4"}'
-opencode api POST /api/rpc/media/close
+opencode api POST /api/rpc/media/open -d '{"input":{"source":"/home/user/clips/demo.mp4"}}'
+opencode api POST /api/rpc/media/close -d '{"input":{}}'
+
+The body is an envelope: the method's own arguments go under `input`. A body of
+`{"source": …}` is rejected with `rpc.invalid_input: Expected object`. The
+service authenticates with HTTP Basic: username `opencode` and the password in
+`service.json`, over the channel's port (`49374` for `latest`, `0xc0de`).
+
+Every open, including `/media` and autoplay, travels through this RPC: the TUI
+part calls it, the server part emits, and the TUI renders the event. The plugin
+never shells out.
 ```
 
 Any client with the server address works the same way, including
