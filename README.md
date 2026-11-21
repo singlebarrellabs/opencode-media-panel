@@ -61,8 +61,8 @@ Add options by editing the `cli.json` entry:
     {
       "package": "opencode-media-panel",
       "options": {
-        "source": "/home/user/clips/demo.gif",
-        "fps": 12
+        "fps": 12,
+        "width": 44
       }
     }
   ]
@@ -230,7 +230,7 @@ To try a local checkout, point `cli.json` at the directory:
   "plugins": [
     {
       "package": "/home/user/code/opencode-media-panel",
-      "options": { "source": "/home/user/clip.gif" }
+      "options": { "fps": 12 }
     }
   ]
 }
