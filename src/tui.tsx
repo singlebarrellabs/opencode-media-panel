@@ -254,6 +254,18 @@ export default Plugin.define({
       context.ui.panel.close();
     });
 
+    // A marker in a finished message opens a clip without any shell command:
+    // the client already receives session text, so the plugin is the one that
+    // raises the request. `media-panel: /path/to/clip.mp4` on its own line.
+    const marker = /(?:^|\n)[ \t]*media-panel:[ \t]*(\S+)[ \t]*(?=\n|$)/;
+    const stopMarker = context.data.on("session.text.ended", (event) => {
+      // The event carries its payload under `data`.
+      const text = (event as { data?: { text?: unknown } }).data?.text;
+      if (typeof text !== "string") return;
+      const match = marker.exec(text);
+      if (match?.[1]) open(match[1]);
+    });
+
     const remembered = options.remember ? saved.source.trim() : "";
     const initial = options.source ?? (remembered === "" ? undefined : remembered);
     let autoplay: ReturnType<typeof setInterval> | undefined;
@@ -280,6 +292,7 @@ export default Plugin.define({
       stopTicker();
       stopOpen();
       stopClose();
+      stopMarker();
       if (autoplay) clearInterval(autoplay);
       unregister();
     };

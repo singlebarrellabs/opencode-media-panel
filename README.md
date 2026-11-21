@@ -102,6 +102,18 @@ The panel belongs to a session, so opening a file from the home screen reports
 Paths with spaces are fine: the whole argument is the path. Remote URLs work
 too, as long as ffmpeg can read the protocol.
 
+### Opening it from a message
+
+A finished message containing this line opens the clip:
+
+```text
+media-panel: /home/user/clips/demo.mp4
+```
+
+That is useful for an agent: it writes the marker in its reply, the plugin reads
+the session text event it already receives, and the panel opens through the same
+RPC path `/media` uses. Nothing runs a command.
+
 ### Opening it from outside the TUI
 
 A script, an agent, or another plugin can open the panel without typing. The
