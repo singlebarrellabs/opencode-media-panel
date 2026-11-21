@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.13
+
+- Fix: install instructions said the package belongs only in `cli.json`. Since
+  0.1.10 it also has a server part, which `opencode.json` must list for the RPC
+  and marker opens to work.
+- Docs: "How it works" describes the single open path through the plugin's own
+  RPC; troubleshooting covers a dead marker and `rpc.unavailable: media`.
+
 ## 0.1.12
 
 - Add: a message marker. A finished message containing a line
