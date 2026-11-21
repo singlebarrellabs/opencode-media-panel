@@ -6,14 +6,6 @@ describe("normalizeOptions", () => {
     expect(normalizeOptions(undefined)).toEqual(DEFAULT_MEDIA_OPTIONS);
   });
 
-  it("keeps a trimmed source and ignores an empty one", () => {
-    expect(normalizeOptions({ source: "  /home/user/clip.mp4 " }).source).toBe(
-      "/home/user/clip.mp4",
-    );
-    expect(normalizeOptions({ source: "   " }).source).toBeUndefined();
-    expect(normalizeOptions({ source: 7 }).source).toBeUndefined();
-  });
-
   it("clamps numbers into the renderable range", () => {
     expect(normalizeOptions({ fps: 0 }).fps).toBe(1);
     expect(normalizeOptions({ fps: 999 }).fps).toBe(30);
@@ -33,13 +25,6 @@ describe("normalizeOptions", () => {
   it("only accepts the known presentation", () => {
     expect(normalizeOptions({ presentation: "fullscreen" }).presentation).toBe("fullscreen");
     expect(normalizeOptions({ presentation: "window" }).presentation).toBe("panel");
-  });
-
-  it("treats autoplay and remember as opt-out and opt-in respectively", () => {
-    expect(normalizeOptions({ autoplay: false }).autoplay).toBe(false);
-    expect(normalizeOptions({ autoplay: "yes" }).autoplay).toBe(true);
-    expect(normalizeOptions({ remember: true }).remember).toBe(true);
-    expect(normalizeOptions({}).remember).toBe(false);
   });
 
   it("keeps a custom ffmpeg path and cache directory", () => {

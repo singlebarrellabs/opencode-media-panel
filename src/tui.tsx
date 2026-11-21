@@ -8,7 +8,6 @@ import { Media } from "./rpc";
 
 /** Opening name for this plugin's panel. Shared selection value, not a registry key. */
 const PANEL = "media.panel";
-const STORAGE = "media";
 
 // File names and ffmpeg messages reach the renderer as text. Replace control
 // characters so neither can inject a terminal escape sequence.
@@ -91,7 +90,6 @@ export default Plugin.define({
   id: PANEL,
   setup(context) {
     const options = normalizeOptions(context.options);
-    const [saved, save] = context.storage.store(STORAGE, { initial: { source: "" } });
     const [clip, setClip] = createSignal<Clip>();
     const [index, setIndex] = createSignal(0);
     const [paused, setPaused] = createSignal(false);
@@ -162,17 +160,6 @@ export default Plugin.define({
         return false;
       }
 
-      if (options.remember) {
-        void save((draft) => {
-          draft.source = source;
-        }).catch(() => {
-          context.ui.toast.show({
-            variant: "warning",
-            title: "Media panel",
-            message: "Could not save the last clip.",
-          });
-        });
-      }
       return true;
     }
 
@@ -187,9 +174,8 @@ export default Plugin.define({
           palette: true,
           slash: { name: "media", aliases: ["anim"], arguments: true },
           run: (input) => {
-            const given = input?.trim() ?? "";
-            const source = given === "" ? options.source : given;
-            if (source === undefined) {
+            const source = input?.trim() ?? "";
+            if (source === "") {
               void context.ui.dialog.alert({
                 title: "Media panel",
                 message: "Pass a file path or URL, for example: /media /home/user/clip.mp4",
@@ -233,7 +219,7 @@ export default Plugin.define({
     // and this subscriber is what opens it.
     // Every open goes through the server: `open` below calls the RPC, the
     // server emits, and this subscriber renders. One path for the slash
-    // command, autoplay and any external caller, and no shell or CLI in it.
+    // command, the message marker and any external caller, and no shell in it.
     // If the server part is not loaded the call rejects and the local opener
     // runs instead, so a TUI-only install keeps working.
     const remote = context.client.rpc(Media);
@@ -250,9 +236,6 @@ export default Plugin.define({
       }
       Promise.resolve(call({ source })).catch(() => show(source));
     }
-    const stopClose = remote.events.on("close", () => {
-      context.ui.panel.close();
-    });
 
     // A marker in a finished message opens a clip without any shell command:
     // the client already receives session text, so the plugin is the one that
@@ -266,34 +249,10 @@ export default Plugin.define({
       if (match?.[1]) open(match[1]);
     });
 
-    const remembered = options.remember ? saved.source.trim() : "";
-    const initial = options.source ?? (remembered === "" ? undefined : remembered);
-    let autoplay: ReturnType<typeof setInterval> | undefined;
-
-    if (options.autoplay && initial !== undefined) {
-      let attempts = 0;
-      autoplay = setInterval(() => {
-        attempts += 1;
-        if (context.ui.router.current().type === "session") {
-          if (autoplay) clearInterval(autoplay);
-          autoplay = undefined;
-          open(initial);
-          return;
-        }
-        // Give up after two minutes: no session was opened.
-        if (attempts > 240 && autoplay) {
-          clearInterval(autoplay);
-          autoplay = undefined;
-        }
-      }, 500);
-    }
-
     return () => {
       stopTicker();
       stopOpen();
-      stopClose();
       stopMarker();
-      if (autoplay) clearInterval(autoplay);
       unregister();
     };
   },

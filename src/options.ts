@@ -8,8 +8,6 @@
 export type PanelPresentation = "panel" | "fullscreen";
 
 export interface MediaOptions {
-  /** File path or URL played on start. Without it the panel opens from a command. */
-  readonly source: string | undefined;
   /** Frames played per second. */
   readonly fps: number;
   /** Panel width in terminal cells. Pixel width is four times this. */
@@ -18,10 +16,6 @@ export interface MediaOptions {
   readonly loop: boolean;
   /** Upper bound on extracted frames, so a long clip cannot exhaust memory. */
   readonly maxFrames: number;
-  /** Open the panel on start when a source is known. */
-  readonly autoplay: boolean;
-  /** Remember the last clip played and reopen it on start. */
-  readonly remember: boolean;
   /** ffmpeg binary name or absolute path. */
   readonly ffmpeg: string;
   /** Root directory for extracted frames. Defaults to the system temp directory. */
@@ -31,13 +25,10 @@ export interface MediaOptions {
 }
 
 export const DEFAULT_MEDIA_OPTIONS: MediaOptions = {
-  source: undefined,
   fps: 12,
   width: 44,
   loop: true,
   maxFrames: 300,
-  autoplay: true,
-  remember: false,
   ffmpeg: "ffmpeg",
   cacheDirectory: undefined,
   presentation: "panel",
@@ -70,23 +61,16 @@ const booleanOr = (value: unknown, fallback: boolean): boolean =>
 
 export function normalizeOptions(raw: Readonly<Record<string, unknown>> | undefined): MediaOptions {
   const input = raw ?? {};
-  const source =
-    typeof input.source === "string" && input.source.trim() !== ""
-      ? input.source.trim()
-      : undefined;
   const cacheDirectory =
     typeof input.cacheDirectory === "string" && input.cacheDirectory.trim() !== ""
       ? input.cacheDirectory.trim()
       : undefined;
 
   return {
-    source,
     fps: numberOr(input.fps, DEFAULT_MEDIA_OPTIONS.fps, 1, 30),
     width: numberOr(input.width, DEFAULT_MEDIA_OPTIONS.width, 8, 120),
     loop: booleanOr(input.loop, DEFAULT_MEDIA_OPTIONS.loop),
     maxFrames: numberOr(input.maxFrames, DEFAULT_MEDIA_OPTIONS.maxFrames, 1, 2000),
-    autoplay: booleanOr(input.autoplay, DEFAULT_MEDIA_OPTIONS.autoplay),
-    remember: booleanOr(input.remember, DEFAULT_MEDIA_OPTIONS.remember),
     ffmpeg: textOr(input.ffmpeg, DEFAULT_MEDIA_OPTIONS.ffmpeg),
     cacheDirectory,
     presentation: input.presentation === "fullscreen" ? "fullscreen" : "panel",

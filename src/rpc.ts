@@ -31,18 +31,6 @@ const definition = Rpc.define({
         additionalProperties: false,
       },
     },
-    close: {
-      input: {
-        type: "object",
-        additionalProperties: false,
-      },
-      output: {
-        type: "object",
-        properties: { queued: { type: "boolean" } },
-        required: ["queued"],
-        additionalProperties: false,
-      },
-    },
   },
   events: {
     open: {
@@ -52,9 +40,6 @@ const definition = Rpc.define({
         required: ["source"],
         additionalProperties: false,
       },
-    },
-    close: {
-      schema: { type: "object", additionalProperties: false },
     },
   },
 });

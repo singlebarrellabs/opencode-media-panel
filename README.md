@@ -69,9 +69,6 @@ Add options by editing the `cli.json` entry:
 }
 ```
 
-With `source` set and `autoplay` left on, the panel opens by itself once a
-session is on screen.
-
 ## Example
 
 Make a clip to try it with, so no media of your own is needed:
@@ -80,25 +77,18 @@ Make a clip to try it with, so no media of your own is needed:
 ffmpeg -f lavfi -i "testsrc=size=320x240:rate=24:duration=4" -pix_fmt yuv420p /tmp/demo.mp4
 ```
 
-Point `cli.json` at it, as in the install example, with `"source": "/tmp/demo.mp4"`,
-then start OpenCode and open a session. The panel opens on its own:
+Then run `/media /tmp/demo.mp4` in a session:
 
 ```text
 demo.mp4 · 12 fps · 7/48 · space pause · f fullscreen · esc close
 ```
 
-48 frames, because the request is 12 frames per second over 4 seconds; the source
+48 frames, because frames are extracted at `fps` (12) over 4 seconds; the source
 clip's own frame rate does not change that. The line above the frames is the whole
-interface: the file name, the frame rate in use, the current frame, and the keys.
-`space` pauses, `f` takes the full window, and `esc` closes the panel.
+interface: file name, frame rate in use, current frame, keys. `space` pauses, `f`
+takes the full window, `esc` closes.
 
-Without a `source`, ask for the file instead:
-
-```text
-/media /tmp/demo.mp4
-```
-
-The panel belongs to a session, so opening a file from the home screen reports
+The panel belongs to a session, so asking for a file from the home screen reports
 "Open a session first" and opens nothing.
 
 ## Use
@@ -141,7 +131,8 @@ The body is an envelope: the method's own arguments go under `input`. A body of
 service authenticates with HTTP Basic: username `opencode` and the password in
 `service.json`, over the channel's port (`49374` for `latest`, `0xc0de`).
 
-Every open, including `/media` and autoplay, travels through this RPC: the TUI
+Every open, including `/media` and the message marker, travels through this
+RPC: the TUI
 part calls it, the server part emits, and the TUI renders the event. The plugin
 never shells out.
 ```
@@ -156,18 +147,15 @@ exactly like typing the command before the panel exists.
 
 ## Options
 
-| Option           | Default     | Meaning                                         |
-| ---------------- | ----------- | ----------------------------------------------- |
-| `source`         | none        | File path or URL opened on start.               |
-| `autoplay`       | `true`      | Open the panel on start when a source is known. |
-| `remember`       | `false`     | Reopen the last clip played on start.           |
-| `fps`            | `12`        | Frames played per second, 1 to 30.              |
-| `width`          | `44`        | Panel width in cells, 4 pixels each.            |
-| `loop`           | `true`      | Restart after the last frame.                   |
-| `maxFrames`      | `300`       | Cap on extracted frames, 1 to 2000.             |
-| `ffmpeg`         | `ffmpeg`    | Binary name or absolute path.                   |
-| `cacheDirectory` | system temp | Root directory for extracted frames.            |
-| `presentation`   | `panel`     | `panel` or `fullscreen`.                        |
+| Option           | Default     | Meaning                              |
+| ---------------- | ----------- | ------------------------------------ |
+| `fps`            | `12`        | Frames played per second, 1 to 30.   |
+| `width`          | `44`        | Panel width in cells, 4 pixels each. |
+| `loop`           | `true`      | Restart after the last frame.        |
+| `maxFrames`      | `300`       | Cap on extracted frames, 1 to 2000.  |
+| `ffmpeg`         | `ffmpeg`    | Binary name or absolute path.        |
+| `cacheDirectory` | system temp | Root directory for extracted frames. |
+| `presentation`   | `panel`     | `panel` or `fullscreen`.             |
 
 Frame height follows the source aspect ratio.
 
@@ -179,8 +167,8 @@ Frame height follows the source aspect ratio.
 3. A timer advances the frame index, and the panel sets its `<image>` source to
    the next entry.
 
-Opening is one path. `/media`, autoplay and a message marker all ask the
-plugin, the plugin calls its own RPC (`context.client.rpc(Media).open`), the
+Opening is one path. `/media`, a message marker and an external RPC call all ask
+the plugin, the plugin calls its own RPC (`context.client.rpc(Media).open`), the
 server part emits, and the TUI's subscription renders. Nothing shells out, and
 if the server part is not loaded the call rejects and the local opener runs
 instead.
@@ -215,7 +203,6 @@ directory under `cacheDirectory` to fetch it again.
 | Toast: `Could not run ffmpeg`  | ffmpeg is not on the TUI's `PATH`; set `ffmpeg` to a full path. |
 | Toast: `Open a session first`  | The panel only exists inside a session.                         |
 | Toast: `ffmpeg failed on ...`  | The file is not media ffmpeg can decode.                        |
-| No autoplay                    | No `source` set and `remember` off, or no session is open yet.  |
 | Panel opens, frame blank       | The terminal has no image support.                              |
 | Panel shows one frame, frozen  | The plugin was hot-swapped into a running session by a config   |
 | counter, `escape` ignored      | edit; restart the TUI so it mounts fresh.                       |
