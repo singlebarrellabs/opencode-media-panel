@@ -38,14 +38,19 @@ protocol: `OPENTUI_IMAGE_PROTOCOL=sixel` or `OPENTUI_IMAGE_PROTOCOL=blocks`.
 opencode plugin add opencode-media-panel
 ```
 
-The package has two parts: the panel (`./tui`) and a server part (the package
-root) that makes it reachable over RPC. List it in **both** files:
+That is enough. `plugin add` writes `cli.json`, which loads the panel: `/media`
+and the `media-panel:` marker both work with nothing else.
 
-- `cli.json` under `plugins` — loads the panel. `plugin add` writes only this
-  one, as a bare package name.
-- `opencode.json` under `plugins` — loads `POST /api/rpc/media/open`, which is
-  what the message marker and any script use. Without it the panel still works
-  from `/media`; only the remote and marker opens fail.
+The package also has a server part. It is optional, and only scripts or
+external clients need it — it registers `POST /api/rpc/media/open`. To enable
+it, add the package to `opencode.json` as well:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugins": ["opencode-media-panel"]
+}
+```
 
 Add options by editing the `cli.json` entry:
 
