@@ -38,9 +38,16 @@ protocol: `OPENTUI_IMAGE_PROTOCOL=sixel` or `OPENTUI_IMAGE_PROTOCOL=blocks`.
 opencode plugin add opencode-media-panel
 ```
 
-A package with only a TUI part is configured in `cli.json`, not
-`opencode.json`. `plugin add` writes a bare package name; add options by
-editing the entry:
+The package has two parts: the panel (`./tui`) and a server part (the package
+root) that makes it reachable over RPC. List it in **both** files:
+
+- `cli.json` under `plugins` — loads the panel. `plugin add` writes only this
+  one, as a bare package name.
+- `opencode.json` under `plugins` — loads `POST /api/rpc/media/open`, which is
+  what the message marker and any script use. Without it the panel still works
+  from `/media`; only the remote and marker opens fail.
+
+Add options by editing the `cli.json` entry:
 
 ```json
 {
@@ -166,6 +173,12 @@ Frame height follows the source aspect ratio.
 2. The PNGs are read into memory as data URIs.
 3. A timer advances the frame index, and the panel sets its `<image>` source to
    the next entry.
+
+Opening is one path. `/media`, autoplay and a message marker all ask the
+plugin, the plugin calls its own RPC (`context.client.rpc(Media).open`), the
+server part emits, and the TUI's subscription renders. Nothing shells out, and
+if the server part is not loaded the call rejects and the local opener runs
+instead.
 
 Extraction is cached per source path, size, modification time, and the settings
 that change the pixels. A restart reuses the previous frames; editing the clip
