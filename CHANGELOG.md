@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.14
+
+- Fix: install docs implied both config files were required. They are not:
+  `opencode plugin add` (which writes `cli.json`) is enough for `/media` and the
+  message marker, because an open falls back to the local opener when the RPC is
+  unavailable. `opencode.json` is only for scripts calling
+  `POST /api/rpc/media/open`. Verified with a `cli.json`-only config: the marker
+  opened the panel at 45/48.
+
 ## 0.1.13
 
 - Fix: install instructions said the package belongs only in `cli.json`. Since
