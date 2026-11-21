@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.12
+
+- Add: a message marker. A finished message containing a line
+  `media-panel: /path/to/clip.mp4` opens that clip. The plugin subscribes to
+  `session.text.ended` through the client it already has, so the request is
+  raised inside the TUI process and travels the same RPC path as `/media`; no
+  shell, no CLI, no second process.
+- Fix: session events carry their payload under `data`; the marker reader reads
+  `event.data.text`.
+
 ## 0.1.11
 
 - Change: every open now travels through the plugin's own server RPC. `/media`
