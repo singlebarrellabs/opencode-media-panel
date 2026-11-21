@@ -25,10 +25,6 @@ export default Plugin.define({
         await registration.events.emit("open", { source });
         return { queued: true };
       },
-      close: async () => {
-        await registration.events.emit("close", {});
-        return { queued: true };
-      },
     });
   },
 });

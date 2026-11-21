@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.15
+
+Removals. The panel now opens only when asked.
+
+- Remove: `source`, `autoplay` and `remember`. The panel no longer opens on
+  load, and `/media` requires a path. That path was the only one that could
+  surprise a user, and the marker replaced it for the agent case.
+- Remove: the `close` RPC method. `escape` closes the panel locally and always
+  did; a script that opened a clip can open another one instead.
+- Docs: one "Ways to open" description instead of four drifting copies.
+
 ## 0.1.14
 
 - Fix: install docs implied both config files were required. They are not:
