@@ -56,7 +56,7 @@
   },
   "devDependencies": {
     "@babel/core": "^7.29.13",
-    "@babel/preset-typescript": "^7.29.7",
+    "@babel/preset-typescript": "^8.0.7",
     "@biomejs/biome": "^2.6.7",
     "@opencode/plugin": "^2.3.2",
     "@opentui/core": "^0.9.0",
